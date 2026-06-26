@@ -2,50 +2,35 @@
 
 let
   cfg = config.services.minecraft-server;
+  jdk = pkgs.jdk21;
 
   # ---- Modpack: All Create (Neoforge) ----------------
-  # Pack hosted on CurseForge / Modrinth.
-  # Update these when the modpack releases a new version.
-  # This is the "All Create: Fabric & Forge" / "All Create" modpack on CurseForge.
-  # We use the Neoforge variant.
+  # Pack hosted on CurseForge.
+  # Update fileId from: https://www.curseforge.com/minecraft/modpacks/all-create/files
   modpack = {
     slug = "all-create";
-    # The Project ID on CurseForge
     projectId = 886033;
-    # Latest known file ID for Neoforge version
-    # Get from: https://www.curseforge.com/minecraft/modpacks/all-create/files
     fileId = 6350000; # placeholder — update me!
   };
 
   # ---- Neoforge server --------------------------------
-  neoforge = {
-    # Neoforge version matching the modpack requirements
-    version = "21.4.144-beta";
-    # Minecraft version this neoforge targets
-    mcVersion = "1.21.4";
+  neoforgeVersion = "21.4.144-beta";
 
-    # URL pattern: https://maven.neoforged.net/releases/net/neoforged/neoforge/{version}/neoforge-{version}-installer.jar
-    installer = pkgs.fetchurl {
-      url = "https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforge.version}/neoforge-${neoforge.version}-installer.jar";
-      hash = ""; # FIXME: set after first build
-    };
+  neoforgeJar = pkgs.fetchurl {
+    url = "https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforgeVersion}/neoforge-${neoforgeVersion}-installer.jar";
+    hash = ""; # FIXME: set after first build
   };
 
-  # ---- Modpack download using cfetcher or direct curl --
-  # We use a simple derivation that downloads the modpack zip
-  # from CurseForge and extracts it.
+  # ---- Modpack download --------------------------------
   modpackData = pkgs.stdenv.mkDerivation {
     name = "all-create-modpack";
     src = pkgs.fetchurl {
-      # CurseForge direct download URL (requires API token or cookie)
-      # Alternative: use Modrinth API
       url = "https://mediafilez.forgecdn.net/files/${builtins.toString (builtins.div modpack.fileId 1000)}/${builtins.toString (modpack.fileId % 1000)}/All+Create-1.0.0.zip";
       hash = ""; # FIXME
     };
     sourceRoot = ".";
     installPhase = ''
       mkdir -p $out
-      # Only extract mods/ and config/ and scripts/
       cp -r mods $out/ 2>/dev/null || true
       cp -r config $out/ 2>/dev/null || true
       cp -r scripts $out/ 2>/dev/null || true
@@ -60,14 +45,14 @@ in {
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = neoforge.installer;
+      default = neoforgeJar;
       description = "Neoforge server installer JAR";
     };
 
     dataDir = lib.mkOption {
       type = lib.types.path;
       default = "/var/lib/minecraft-server";
-      description = "Minecraft server data directory (server files, world, config)";
+      description = "Minecraft server data directory";
     };
 
     jvmArgs = lib.mkOption {
@@ -79,12 +64,18 @@ in {
     eula = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Accept Minecraft EULA (Minecraft EULA at https://account.mojang.com/documents/minecraft_eula)";
+      description = "Accept Minecraft EULA";
+    };
+
+    memoryMax = lib.mkOption {
+      type = lib.types.str;
+      default = "8G";
+      description = "MemoryMax for the service (systemd resource control)";
     };
   };
 
   config = lib.mkIf cfg.enable {
-    # --- Pre-requisites --------------------------------
+    # --- User ------------------------------------------
     users.users.minecraft-server = {
       description = "Minecraft server user";
       home = cfg.dataDir;
@@ -94,7 +85,7 @@ in {
     };
     users.groups.minecraft-server = {};
 
-    # Accept EULA automatically
+    # --- EULA ------------------------------------------
     environment.etc."minecraft-eula.txt".text = lib.mkIf cfg.eula ''
       # By changing the setting below to TRUE you are indicating your agreement to our EULA
       # (https://account.mojang.com/documents/minecraft_eula).
@@ -108,26 +99,23 @@ in {
       wantedBy = [ "multi-user.target" ];
 
       path = with pkgs; [
-        jdk21        # Neoforge needs JDK 21+
+        jdk
         openssl
         curl
       ];
 
       preStart = ''
-        # Create symlink for EULA
         if [ ! -f ${cfg.dataDir}/eula.txt ]; then
           if [ -f /etc/minecraft-eula.txt ]; then
             cp /etc/minecraft-eula.txt ${cfg.dataDir}/eula.txt
           fi
         fi
 
-        # If server JAR doesn't exist, run the installer
-        if [ ! -f ${cfg.dataDir}/neoforge-${neoforge.version}.jar ]; then
+        if [ ! -f ${cfg.dataDir}/neoforge-${neoforgeVersion}.jar ]; then
           echo "Installing Neoforge server..."
-          ${jdk21}/bin/java -jar ${neoforge.installer} --installServer ${cfg.dataDir}/
+          ${jdk}/bin/java -jar ${neoforgeJar} --installServer ${cfg.dataDir}/
         fi
 
-        # Install modpack if not present
         if [ ! -f ${cfg.dataDir}/mods/.installed ]; then
           echo "Installing All Create modpack..."
           cp -r ${modpackData}/mods ${cfg.dataDir}/ 2>/dev/null || true
@@ -141,9 +129,9 @@ in {
 
       script = ''
         cd ${cfg.dataDir}
-        exec ${pkgs.jdk21}/bin/java \
+        exec ${jdk}/bin/java \
           ${cfg.jvmArgs} \
-          -jar neoforge-${neoforge.version}.jar \
+          -jar neoforge-${neoforgeVersion}.jar \
           nogui
       '';
 
@@ -157,10 +145,10 @@ in {
         StandardOutput = "journal";
         StandardError = "journal";
         LimitNOFILE = 1048576;
-        # ProtectHome = true;   # Breaks some mods that write to user home
         ProtectSystem = "full";
         PrivateTmp = true;
         NoNewPrivileges = true;
+        MemoryMax = cfg.memoryMax;
       };
     };
   };

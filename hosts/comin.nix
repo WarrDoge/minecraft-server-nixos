@@ -1,10 +1,6 @@
 { config, lib, pkgs, ... }:
 
 {
-  imports = [
-    ./sops-base.nix
-  ];
-
   # --- comin: gitops pull-based deploy -----------------
   services.comin = {
     enable = true;
@@ -17,14 +13,14 @@
     autoUpdate = true;
     wantedServices = [
       "minecraft-server"
-      "sops-nix"
     ];
+    # Remap branch name in case the server uses a different local ref
+    remapBranchName = true;
   };
 
   # Allow comin to rebuild and switch
-  nix.settings = {
-    trusted-users = ["comin"];
-    substituters = ["https://cache.nixos.org"];
-    trusted-public-keys = ["cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="];
-  };
+  nix.settings.trusted-users = [ "comin" ];
+
+  # Required for flakes
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
 }

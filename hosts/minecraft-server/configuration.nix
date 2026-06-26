@@ -1,4 +1,4 @@
-{ config, lib, pkgs, nixpkgs-stable, nixneight, ... }:
+{ config, lib, pkgs, ... }:
 
 {
   imports = [
@@ -40,10 +40,7 @@
   };
 
   # --- Nix --------------------------------------------
-  nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
-    auto-optimise-store = true;
-  };
+  nix.settings.auto-optimise-store = true;
 
   nix.gc = {
     automatic = true;
@@ -51,18 +48,8 @@
     options = "--delete-older-than 7d";
   };
 
-  # --- Monitoring -------------------------------------
+  # --- Tailscale -------------------------------------
   services.tailscale.enable = true;
-
-  # --- Java / Minecraft alloc -------------------------
-  # The service module (services/minecraft-server) handles the rest.
-  # Tune heap here:
-  systemd.services.minecraft-server = {
-    serviceConfig = {
-      MemoryMax = "8G";
-      MemoryHigh = "6G";
-    };
-  };
 
   environment.systemPackages = with pkgs; [
     htop
