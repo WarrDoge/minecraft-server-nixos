@@ -1,0 +1,41 @@
+name: Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          extra-conf: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ github.token }}
+
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: nix flake check
+        run: nix flake check --all-systems --no-build
+
+  build-system:
+    needs: [eval]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          extra-conf: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ github.token }}
+
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Build NixOS config (no modpack fetch — just eval + build system)
+        run: nix build .#nixosConfigurations.minecraft-server.config.system.build.toplevel --no-link --print-out-paths
