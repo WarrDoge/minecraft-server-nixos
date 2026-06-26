@@ -20,14 +20,12 @@ jobs:
 
       - name: nixfmt
         run: |
-          nix shell nixpkgs#nixfmt-rfc-style -c nixfmt --check \
-            flake.nix \
-            hosts/comin.nix \
-            hosts/sops-base.nix \
+          nix profile install nixpkgs#nixfmt-rfc-style --impure
+          nixfmt --check flake.nix hosts/comin.nix hosts/sops-base.nix \
             hosts/minecraft-server/configuration.nix \
             services/minecraft-server/default.nix
 
-  check:
+  eval:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,11 +36,12 @@ jobs:
             access-tokens = github.com=${{ github.token }}
       - uses: DeterminateSystems/magic-nix-cache-action@v8
 
-      - name: nix flake check
-        run: nix flake check --no-build
+      - name: Eval system
+        run: |
+          nix eval .#nixosConfigurations.minecraft-server.config.system.build.toplevel.outPath
 
   build:
-    needs: [check, lint]
+    needs: [eval, lint]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +53,6 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Build system closure
-        run: >
-          nix build .#nixosConfigurations.minecraft-server.config.system.build.toplevel
-          --no-link --print-out-paths
+        run: |
+          nix build .#nixosConfigurations.minecraft-server.config.system.build.toplevel \
+            --no-link --print-out-paths

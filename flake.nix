@@ -39,7 +39,6 @@
     };
 
     nixosModules.minecraft-server = import ./services/minecraft-server;
-
     devShells.${system}.default = pkgs.mkShell {
       name = "minecraft-server-nixos";
       packages = with pkgs; [
@@ -50,8 +49,5 @@
         git
       ];
     };
-
-    # Verify the nixosConfig evaluates — nix flake check will build this
-    checks.${system}.default = self.nixosConfigurations.minecraft-server.config.system.build.toplevel;
   };
 }
