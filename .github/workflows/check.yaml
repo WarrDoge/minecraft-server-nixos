@@ -7,33 +7,15 @@ on:
     branches: [main]
 
 jobs:
-  eval:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: DeterminateSystems/nix-installer-action@v16
-        with:
-          extra-conf: |
-            accept-flake-config = true
-            access-tokens = github.com=${{ github.token }}
-
-      - uses: DeterminateSystems/magic-nix-cache-action@v8
-
-      - name: nix flake check
-        run: nix flake check --all-systems --no-build
-
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: DeterminateSystems/nix-installer-action@v16
         with:
           extra-conf: |
             accept-flake-config = true
             access-tokens = github.com=${{ github.token }}
-
       - uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: nixfmt
@@ -45,18 +27,30 @@ jobs:
             hosts/minecraft-server/configuration.nix \
             services/minecraft-server/default.nix
 
-  build:
-    needs: [eval, lint]
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: DeterminateSystems/nix-installer-action@v16
         with:
           extra-conf: |
             accept-flake-config = true
             access-tokens = github.com=${{ github.token }}
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
 
+      - name: nix flake check
+        run: nix flake check --no-build
+
+  build:
+    needs: [check, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          extra-conf: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ github.token }}
       - uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Build system closure

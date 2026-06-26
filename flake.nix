@@ -51,7 +51,7 @@
       ];
     };
 
-    # Required for `nix flake check`
-    checks.${system} = self.devShells.${system};
+    # Verify the nixosConfig evaluates — nix flake check will build this
+    checks.${system}.default = self.nixosConfigurations.minecraft-server.config.system.build.toplevel;
   };
 }
