@@ -18,7 +18,7 @@ let
 
   neoforgeJar = pkgs.fetchurl {
     url = "https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforgeVersion}/neoforge-${neoforgeVersion}-installer.jar";
-    hash = ""; # FIXME: set after first build
+    hash = lib.fakeSha256; # FIXME: set after first build
   };
 
   # ---- Modpack download --------------------------------
@@ -26,7 +26,7 @@ let
     name = "all-create-modpack";
     src = pkgs.fetchurl {
       url = "https://mediafilez.forgecdn.net/files/${builtins.toString (builtins.div modpack.fileId 1000)}/${builtins.toString (modpack.fileId % 1000)}/All+Create-1.0.0.zip";
-      hash = ""; # FIXME
+      hash = lib.fakeSha256; # FIXME
     };
     sourceRoot = ".";
     installPhase = ''
